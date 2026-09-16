@@ -244,7 +244,7 @@ function defaultState() {
     moods: {},
     reviews: {},
     pin: null,
-    settings: { theme: "dark", reduceMotion: false, dailyPenalty: true },
+    settings: { theme: "dark", reduceMotion: false, dailyPenalty: true, sound: false },
     lastOpen: today(),
   };
 }
@@ -1068,6 +1068,7 @@ function viewSet() {
       <div class="list-row"><div>Светлая тема</div><button class="toggle ${s.theme === "light" ? "on" : ""}" data-set="theme"><i></i></button></div>
       <div class="list-row"><div><div>Штраф за пропуск</div><div class="tiny">утром снимается HP за вчера</div></div><button class="toggle ${s.dailyPenalty ? "on" : ""}" data-set="dailyPenalty"><i></i></button></div>
       <div class="list-row"><div>Меньше движения</div><button class="toggle ${s.reduceMotion ? "on" : ""}" data-set="reduceMotion"><i></i></button></div>
+      <div class="list-row"><div>Звук интерфейса</div><button class="toggle ${(window.LIFE_FX ? LIFE_FX.isSound() : s.sound) ? "on" : ""}" data-set="sound"><i></i></button></div>
       <h2>Устройство</h2>
       <div class="device-pick">
         <button class="${session.device === "phone" ? "on" : ""}" data-dev="phone">Телефон<span class="sub">узкий экран</span></button>
@@ -1510,6 +1511,7 @@ function bind() {
       const k = b.dataset.set;
       if (k === "theme") state.settings.theme = state.settings.theme === "light" ? "dark" : "light";
       else state.settings[k] = !state.settings[k];
+      if (k === "sound" && window.LIFE_FX) LIFE_FX.setSound(!!state.settings.sound);
       save();
       applyTheme();
       render();

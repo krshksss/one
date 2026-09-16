@@ -43,6 +43,78 @@ body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
+
+#fx {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .55;
+}
+#app { z-index: 1; }
+.crt {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,.035) 0 1px,
+      transparent 1px 3px
+    );
+  mix-blend-mode: overlay;
+  animation: crtFlicker 4.5s steps(2) infinite;
+}
+.crt::before {
+  content: "";
+  position: absolute;
+  inset: -20% 0 auto;
+  height: 18%;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,.07), transparent);
+  animation: crtSweep 5.5s linear infinite;
+}
+.crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.35) 100%);
+  mix-blend-mode: multiply;
+}
+@keyframes crtFlicker {
+  0%, 92%, 100% { opacity: .22; }
+  93% { opacity: .08; }
+  96% { opacity: .3; }
+}
+@keyframes crtSweep {
+  from { transform: translateY(-10%); }
+  to { transform: translateY(620%); }
+}
+.snd {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: 14px;
+  z-index: 95;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  color: var(--fg);
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform .25s var(--ease), opacity .25s;
+}
+.snd svg { width: 18px; height: 18px; }
+.snd.off { opacity: .45; }
+.snd.off .snd-wave { opacity: 0; }
+.snd:active { transform: scale(.94); }
+
+html[data-theme="light"] .crt { mix-blend-mode: multiply; opacity: .35; }
+html[data-reduce="1"] #fx,
+html[data-reduce="1"] .crt { display: none; }
 #app { height: 100%; max-width: 480px; margin: 0 auto; position: relative; }
 html[data-device="pc"] #app { max-width: 1120px; }
 html[data-device="pc"] body { overflow: auto; }
