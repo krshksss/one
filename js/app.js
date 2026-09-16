@@ -70,6 +70,8 @@ let chatDraft = "";
 let goalQuery = "";
 let timer = { total: 25 * 60, left: 25 * 60, run: false, mode: "focus" };
 let timerIv = 0;
+let calCursor = new Date();
+let lastNotifyKey = "";
 
 const MOODS = [
   { id: "low", name: "тяжело" },
@@ -244,7 +246,16 @@ function defaultState() {
     moods: {},
     reviews: {},
     pin: null,
-    settings: { theme: "dark", reduceMotion: false, dailyPenalty: true, sound: false },
+    settings: {
+      theme: "dark",
+      reduceMotion: false,
+      dailyPenalty: true,
+      sound: false,
+      notify: false,
+      remindReview: "21:00",
+      remindOpen: "18:00",
+      remindMorning: "10:00",
+    },
     lastOpen: today(),
   };
 }
@@ -287,8 +298,12 @@ function applyTheme() {
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.device = device;
   document.documentElement.dataset.reduce = state.settings?.reduceMotion ? "1" : "";
+  const egg = document.documentElement.dataset.egg;
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = theme === "light" ? "#f7f7f7" : "#0a0a0a";
+  if (m) {
+    m.content =
+      egg === "matrix" ? "#010300" : egg === "fallout" ? "#0b0903" : theme === "light" ? "#f7f7f7" : "#0a0a0a";
+  }
   if (tg) {
     try {
       tg.setHeaderColor("bg_color");
@@ -670,6 +685,8 @@ function assistantReply(text) {
     return "Не жди настроение. Выбери цель на 10 минут и отметь. Импульс появляется после старта, не до.";
   }
   if (/таймер|фокус|помодор/.test(t)) return "На главной есть таймер 15/25/45. Закрытая сессия даёт опыт. Сначала главная цель, потом таймер.";
+  if (/календар|месяц/.test(t)) return "Календарь в Прогрессе. Точка — день закрыт, бледный день — пропуск.";
+  if (/напомин/.test(t)) return "Напоминания в Настройках. Включи пуш и поставь время утра, дня и вечернего разбора.";
   if (/настроен|как я/.test(t)) {
     const m = MOODS.find((x) => x.id === state.moods[today()]);
     return m ? "Сегодня ты отметил: " + m.name + ". Если тяжело — одна лёгкая цель и короткая сессия." : "Отметь настроение на главной. Это не оценка, а снимок дня.";
@@ -709,6 +726,7 @@ function svg(name) {
     chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 6h14v10H8l-3 3z"/></svg>`,
     music: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>`,
     stats: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V9m7 10V5m7 14v-6"/></svg>`,
+    cal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>`,
     me: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.4-3.2 3.8-4.5 7-4.5s5.6 1.3 7 4.5"/></svg>`,
     set: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 4v2m0 12v2M4 12h2m12 0h2"/></svg>`,
   };
@@ -969,6 +987,88 @@ function weekMoods() {
   return days.join("");
 }
 
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function monthGrid(date) {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const first = new Date(y, m, 1);
+  const start = (first.getDay() + 6) % 7;
+  const daysIn = new Date(y, m + 1, 0).getDate();
+  const created = state.user ? state.user.created : today();
+  const cells = [];
+  for (let i = 0; i < start; i++) cells.push(`<div class="cal-cell empty"></div>`);
+  for (let d = 1; d <= daysIn; d++) {
+    const id = y + "-" + pad2(m + 1) + "-" + pad2(d);
+    const ok = state.user && state.user.days[id] === "ok";
+    const mood = state.moods[id];
+    const review = state.reviews[id];
+    const isToday = id === today();
+    const past = id < today() && id >= created;
+    const miss = past && !ok;
+    const cls = ["cal-cell", isToday ? "today" : "", ok ? "ok" : "", miss ? "miss" : ""].filter(Boolean).join(" ");
+    cells.push(
+      `<div class="${cls}" title="${id}">${d}<span class="dots">${ok ? '<i class="d"></i>' : ""}${mood ? '<i class="d mood"></i>' : ""}${review ? '<i class="d"></i>' : ""}</span></div>`
+    );
+  }
+  return cells.join("");
+}
+
+function monthTitle(date) {
+  const names = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+  return names[date.getMonth()] + " " + date.getFullYear();
+}
+
+function nowHM() {
+  const d = new Date();
+  return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+}
+
+function openGoalsCount() {
+  return state.goals.filter((g) => !g.done).length;
+}
+
+function notify(title, body, key) {
+  if (!state.settings?.notify) return;
+  if (lastNotifyKey === key) return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  lastNotifyKey = key;
+  try {
+    new Notification(title, { body, silent: false });
+  } catch {}
+}
+
+function tickReminders() {
+  if (!state.user || !state.settings?.notify) return;
+  const t = today();
+  const hm = nowHM();
+  const s = state.settings;
+  if (s.remindMorning && hm === s.remindMorning) {
+    const pin = state.pin && state.goals.find((g) => g.id === state.pin && !g.done);
+    notify("LIFE", pin ? "Главная сегодня: " + pin.title : "Отметь главную цель на день", t + "-morn");
+  }
+  if (s.remindOpen && hm === s.remindOpen && openGoalsCount()) {
+    notify("LIFE", "Открытых целей: " + openGoalsCount(), t + "-open");
+  }
+  if (s.remindReview && hm === s.remindReview && !state.reviews[t]) {
+    notify("LIFE", "Вечерний разбор ещё не записан", t + "-rev");
+  }
+}
+
+async function enableNotify() {
+  if (!("Notification" in window)) return toast("Уведомления тут не поддерживаются");
+  const p = await Notification.requestPermission();
+  state.settings.notify = p === "granted";
+  save();
+  if (state.settings.notify) {
+    toast("Напоминания включены");
+    notify("LIFE", "Ок. Напомню про цели и разбор дня.", "test");
+  } else toast("Доступ не дан");
+  render();
+}
+
 function weekDays() {
   const days = [];
   for (let i = 6; i >= 0; i--) {
@@ -995,6 +1095,16 @@ function viewStats() {
   return shell(
     `<div class="scroll">
       <h1>Прогресс</h1>
+      <div class="between" style="margin:8px 0 10px">
+        <button class="btn btn-ghost" id="calPrev" style="width:auto;padding:8px 12px">‹</button>
+        <div>${monthTitle(calCursor)}</div>
+        <button class="btn btn-ghost" id="calNext" style="width:auto;padding:8px 12px">›</button>
+      </div>
+      <div class="daygrid">
+        ${["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((d) => `<div class="cal-head">${d}</div>`).join("")}
+        ${monthGrid(calCursor)}
+      </div>
+      <p class="tiny" style="margin:8px 0 0">точка — день закрыт · бледная — пропуск</p>
       <h2>Неделя</h2>
       <div class="daygrid">${weekDays()}</div>
       <div class="vital" style="margin-top:16px">
@@ -1069,6 +1179,21 @@ function viewSet() {
       <div class="list-row"><div><div>Штраф за пропуск</div><div class="tiny">утром снимается HP за вчера</div></div><button class="toggle ${s.dailyPenalty ? "on" : ""}" data-set="dailyPenalty"><i></i></button></div>
       <div class="list-row"><div>Меньше движения</div><button class="toggle ${s.reduceMotion ? "on" : ""}" data-set="reduceMotion"><i></i></button></div>
       <div class="list-row"><div>Звук интерфейса</div><button class="toggle ${(window.LIFE_FX ? LIFE_FX.isSound() : s.sound) ? "on" : ""}" data-set="sound"><i></i></button></div>
+      <h2>Напоминания</h2>
+      <div class="list-row">
+        <div>
+          <div>Пуш-уведомления</div>
+          <div class="tiny">браузер спросит разрешение</div>
+        </div>
+        <button class="toggle ${s.notify ? "on" : ""}" id="togNotify"><i></i></button>
+      </div>
+      <label>Утро · главная цель</label>
+      <input id="tMorning" type="time" value="${esc(s.remindMorning || "10:00")}" />
+      <label>День · открытые цели</label>
+      <input id="tOpen" type="time" value="${esc(s.remindOpen || "18:00")}" />
+      <label>Вечер · разбор дня</label>
+      <input id="tReview" type="time" value="${esc(s.remindReview || "21:00")}" />
+      <button class="btn btn-ghost" id="saveRemind" style="margin-top:12px">Сохранить время</button>
       <h2>Устройство</h2>
       <div class="device-pick">
         <button class="${session.device === "phone" ? "on" : ""}" data-dev="phone">Телефон<span class="sub">узкий экран</span></button>
@@ -1481,6 +1606,37 @@ function bind() {
 
   bindMusic();
 
+  const calPrev = $("#calPrev");
+  const calNext = $("#calNext");
+  if (calPrev)
+    calPrev.onclick = () => {
+      calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() - 1, 1);
+      render();
+    };
+  if (calNext)
+    calNext.onclick = () => {
+      calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + 1, 1);
+      render();
+    };
+  const togNotify = $("#togNotify");
+  if (togNotify)
+    togNotify.onclick = () => {
+      if (state.settings.notify) {
+        state.settings.notify = false;
+        save();
+        render();
+      } else enableNotify();
+    };
+  const saveRemind = $("#saveRemind");
+  if (saveRemind)
+    saveRemind.onclick = () => {
+      state.settings.remindMorning = $("#tMorning").value || "10:00";
+      state.settings.remindOpen = $("#tOpen").value || "18:00";
+      state.settings.remindReview = $("#tReview").value || "21:00";
+      save();
+      toast("Время напоминаний сохранено");
+    };
+
   const saveP = $("#saveP");
   if (saveP)
     saveP.onclick = () => {
@@ -1706,4 +1862,5 @@ function runBoot() {
 bootTelegram();
 runBoot();
 if ("serviceWorker" in navigator && !tgApp()) navigator.serviceWorker.register("./sw.js").catch(() => {});
+setInterval(tickReminders, 30000);
 render();

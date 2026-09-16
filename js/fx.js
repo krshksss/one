@@ -53,9 +53,22 @@
 
     const mx = (mouse.x - 0.5) * 40;
     const my = (mouse.y - 0.5) * 40;
-    const light = document.documentElement.dataset.theme === "light";
-    ctx.strokeStyle = light ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.09)";
-    ctx.fillStyle = light ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.7)";
+    const egg = document.documentElement.dataset.egg;
+    const light = document.documentElement.dataset.theme === "light" && !egg;
+    ctx.strokeStyle = egg === "matrix"
+      ? "rgba(57,255,20,.16)"
+      : egg === "fallout"
+      ? "rgba(255,176,0,.16)"
+      : light
+      ? "rgba(0,0,0,.08)"
+      : "rgba(255,255,255,.09)";
+    ctx.fillStyle = egg === "matrix"
+      ? "rgba(57,255,20,.85)"
+      : egg === "fallout"
+      ? "rgba(255,176,0,.85)"
+      : light
+      ? "rgba(0,0,0,.55)"
+      : "rgba(255,255,255,.7)";
 
     for (let i = 0; i < stars.length; i++) {
       const a = stars[i];
@@ -228,11 +241,51 @@
     n.stop(t + 0.08);
   }
 
+  function setEgg(id) {
+    const next = id || "";
+    const cur = document.documentElement.dataset.egg || "";
+    if (next === cur) {
+      delete document.documentElement.dataset.egg;
+    } else if (next) {
+      document.documentElement.dataset.egg = next;
+    } else {
+      delete document.documentElement.dataset.egg;
+    }
+    const egg = document.documentElement.dataset.egg;
+    if (typeof toast === "function") {
+      toast(egg === "matrix" ? "WAKE UP, NEO" : egg === "fallout" ? "WAR NEVER CHANGES" : "SIGNAL LOST");
+    }
+    clickSound();
+  }
+
   window.LIFE_FX = {
     setSound,
     isSound: () => soundOn,
     click: clickSound,
+    setEgg,
   };
+
+  const konami = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+  let kbuf = [];
+  window.addEventListener("keydown", (e) => {
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target.isContentEditable) return;
+    kbuf = kbuf.concat(e.key).slice(-konami.length);
+    if (kbuf.join() === konami.join()) setEgg("matrix");
+    if (!e.shiftKey) return;
+    if (e.code === "KeyM") {
+      e.preventDefault();
+      setEgg("matrix");
+    }
+    if (e.code === "KeyF") {
+      e.preventDefault();
+      setEgg("fallout");
+    }
+    if (e.code === "KeyX" || e.code === "Escape") {
+      e.preventDefault();
+      setEgg("");
+    }
+  });
 
   window.addEventListener("pointermove", (e) => {
     mouse.tx = e.clientX / Math.max(1, w);
