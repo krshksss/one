@@ -294,7 +294,8 @@ function save() {
 function applyTheme() {
   const tg = tgApp();
   const theme = tg ? (tg.colorScheme === "light" ? "light" : "dark") : state.settings?.theme || "dark";
-  const device = tg ? "phone" : session?.device || pickDevice;
+  const narrow = window.matchMedia("(max-width: 800px)").matches;
+  const device = tg || narrow ? "phone" : session?.device || pickDevice;
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.device = device;
   document.documentElement.dataset.reduce = state.settings?.reduceMotion ? "1" : "";
@@ -737,7 +738,7 @@ function navMobile() {
   const items = [
     ["home", "Сегодня"],
     ["goals", "Цели"],
-    ["stats", "Календарь"],
+    ["stats", "Прогресс"],
     ["me", "Я"],
     ["set", "Ещё"],
   ];
@@ -848,7 +849,7 @@ function viewHome() {
           ? `<h2>Главная сегодня</h2>${goalCard(state.goals.find((g) => g.id === state.pin))}`
           : `<div class="card tiny">Отметь одну цель как главную — через ···. С неё начинается день.</div>`
       }
-      <div class="between"><h2 style="margin:0">Месяц</h2><button class="tiny" data-tab="stats" style="background:none;border:0;color:var(--muted)">весь календарь</button></div>
+      <div class="between"><h2 style="margin:0">Месяц</h2><button class="tiny" data-tab="stats" style="background:none;border:0;color:var(--muted)">прогресс</button></div>
       <div class="daygrid" style="margin-bottom:8px">
         ${["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((d) => `<div class="cal-head">${d}</div>`).join("")}
         ${monthGrid(new Date())}
