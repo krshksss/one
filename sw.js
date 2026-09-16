@@ -1,4 +1,4 @@
-const CACHE = "life-v8";
+const CACHE = "life-v11";
 const ASSETS = ["./", "./index.html", "./css/style.css", "./js/app.js", "./js/fx.js", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
